@@ -1,9 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  equatorialToHorizontal,
+  getSignedAngleDifference,
+  normalizeHeading,
+} from "@/lib/astronomy";
 import type { TrackerAlert, TrackerPayload } from "@/lib/jpl";
 
 type WatchMode = "All sky" | "Imaging" | "Outreach";
+type FinderPermissionState = "idle" | "pending" | "granted" | "denied" | "unsupported";
+type LocationSnapshot = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+};
+type CompassOrientationEvent = DeviceOrientationEvent & {
+  webkitCompassHeading?: number | null;
+};
+type DeviceOrientationPermissionEvent = typeof DeviceOrientationEvent & {
+  requestPermission?: () => Promise<PermissionState>;
+};
 
 const watchModes: WatchMode[] = ["All sky", "Imaging", "Outreach"];
 const emptyComets: TrackerPayload["comets"] = [];
@@ -458,6 +475,8 @@ export default function Home() {
                     </div>
 
                     <div className="flex flex-col gap-4">
+                      <PhoneFinderPanel selected={selected} now={now} />
+
                       <div className="rounded-[28px] border border-white/[0.10] bg-[rgba(255,255,255,0.04)] p-4 sm:p-5">
                         <p className="eyebrow">Orbital metrics</p>
                         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
@@ -698,4 +717,463 @@ function Metric({
       <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{hint}</p>
     </div>
   );
+}
+
+function PhoneFinderPanel({
+  selected,
+  now,
+}: {
+  selected: TrackerPayload["comets"][number];
+  now: Date;
+}) {
+  const [locationStatus, setLocationStatus] = useState<FinderPermissionState>("idle");
+  const [orientationStatus, setOrientationStatus] = useState<FinderPermissionState>("idle");
+  const [location, setLocation] = useState<LocationSnapshot | null>(null);
+  const [heading, setHeading] = useState<number | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [orientationError, setOrientationError] = useState<string | null>(null);
+  const [finderBusy, setFinderBusy] = useState(false);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus("unsupported");
+    }
+
+    if (typeof window === "undefined" || typeof DeviceOrientationEvent === "undefined") {
+      setOrientationStatus("unsupported");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (locationStatus !== "granted" || typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
+        setLocationError(null);
+      },
+      (error) => {
+        if (error.code === 1) {
+          setLocationStatus("denied");
+          setLocationError(
+            "Location access is required to place the comet in your local sky.",
+          );
+          return;
+        }
+
+        setLocationError(
+          "The phone could not refresh its position. The last known fix is still being used.",
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 15000,
+        timeout: 10000,
+      },
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [locationStatus]);
+
+  useEffect(() => {
+    if (orientationStatus !== "granted" || typeof window === "undefined") {
+      return;
+    }
+
+    const handleOrientation = (event: CompassOrientationEvent) => {
+      let nextHeading: number | null = null;
+
+      if (typeof event.webkitCompassHeading === "number") {
+        nextHeading = event.webkitCompassHeading;
+      } else if (typeof event.alpha === "number") {
+        nextHeading = 360 - event.alpha;
+      }
+
+      if (nextHeading === null || !Number.isFinite(nextHeading)) {
+        return;
+      }
+
+      setHeading(normalizeHeading(nextHeading));
+      setOrientationError(null);
+    };
+
+    window.addEventListener("deviceorientationabsolute", handleOrientation as EventListener, true);
+    window.addEventListener("deviceorientation", handleOrientation as EventListener, true);
+
+    return () => {
+      window.removeEventListener(
+        "deviceorientationabsolute",
+        handleOrientation as EventListener,
+        true,
+      );
+      window.removeEventListener("deviceorientation", handleOrientation as EventListener, true);
+    };
+  }, [orientationStatus]);
+
+  const skyPosition = useMemo(() => {
+    if (!location) {
+      return null;
+    }
+
+    return equatorialToHorizontal(
+      selected.rightAscension,
+      selected.declination,
+      {
+        latitude: location.latitude,
+        longitude: location.longitude,
+      },
+      now,
+    );
+  }, [location, now, selected.declination, selected.rightAscension]);
+
+  const turnDelta =
+    skyPosition && heading !== null ? getSignedAngleDifference(skyPosition.azimuth, heading) : null;
+  const directionLabel = skyPosition ? formatCompassDirection(skyPosition.azimuth) : null;
+  const finderCopy = getFinderCopy(selected.name, skyPosition, turnDelta, heading);
+  const actionLabel = getFinderActionLabel(locationStatus, orientationStatus, finderBusy);
+
+  async function requestLocationAccess() {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus("unsupported");
+      setLocationError("This browser does not expose phone location.");
+      return false;
+    }
+
+    setLocationStatus("pending");
+    setLocationError(null);
+
+    return new Promise<boolean>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          });
+          setLocationStatus("granted");
+          resolve(true);
+        },
+        (error) => {
+          if (error.code === 1) {
+            setLocationStatus("denied");
+            setLocationError(
+              "Location access was denied, so the finder cannot solve altitude and azimuth for your phone.",
+            );
+          } else {
+            setLocationStatus("idle");
+            setLocationError(
+              "The phone could not lock a position yet. Try again outdoors or enable precise location.",
+            );
+          }
+
+          resolve(false);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 10000,
+        },
+      );
+    });
+  }
+
+  async function requestOrientationAccess() {
+    if (typeof window === "undefined" || typeof window.DeviceOrientationEvent === "undefined") {
+      setOrientationStatus("unsupported");
+      setOrientationError("This browser does not expose compass heading data.");
+      return false;
+    }
+
+    setOrientationStatus("pending");
+    setOrientationError(null);
+
+    try {
+      const orientationEvent = window.DeviceOrientationEvent as DeviceOrientationPermissionEvent;
+
+      if (typeof orientationEvent.requestPermission === "function") {
+        const permissionState = await orientationEvent.requestPermission();
+
+        if (permissionState !== "granted") {
+          setOrientationStatus("denied");
+          setOrientationError(
+            "Compass access was denied, so the finder can only show the target's direction in the sky.",
+          );
+          return false;
+        }
+      }
+
+      setOrientationStatus("granted");
+      return true;
+    } catch {
+      setOrientationStatus("denied");
+      setOrientationError("Compass access could not be enabled in this browser.");
+      return false;
+    }
+  }
+
+  async function enableFinder() {
+    setFinderBusy(true);
+
+    try {
+      if (locationStatus !== "granted") {
+        await requestLocationAccess();
+      }
+
+      if (orientationStatus !== "granted" && orientationStatus !== "unsupported") {
+        await requestOrientationAccess();
+      }
+    } finally {
+      setFinderBusy(false);
+    }
+  }
+
+  return (
+    <section className="rounded-[28px] border border-white/[0.10] bg-[rgba(255,255,255,0.04)] p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="eyebrow">Phone finder</p>
+          <h3 className="mt-2 text-2xl font-medium tracking-[-0.06em] text-white">
+            Point to {selected.name}
+          </h3>
+        </div>
+        <div className="rounded-full border border-white/[0.10] bg-white/[0.05] px-3 py-1 font-mono text-xs text-[color:var(--muted)]">
+          Mobile
+        </div>
+      </div>
+
+      <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
+        Use your phone&apos;s location and compass to convert the selected comet into a live
+        direction in your own sky.
+      </p>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void enableFinder()}
+          disabled={finderBusy}
+          className="rounded-full border border-white/[0.18] bg-white/[0.08] px-4 py-2 text-sm text-white transition duration-300 hover:-translate-y-0.5 hover:bg-white/[0.12] disabled:cursor-wait disabled:opacity-70"
+        >
+          {actionLabel}
+        </button>
+        <div className="rounded-full border border-white/[0.10] bg-[rgba(0,0,0,0.18)] px-3 py-2 font-mono text-xs text-[color:var(--muted)]">
+          {location ? `±${Math.round(location.accuracy)} m` : "No location fix"}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <FinderStatus label="Location" status={locationStatus} />
+        <FinderStatus label="Compass" status={orientationStatus} />
+      </div>
+
+      {skyPosition ? (
+        <>
+          <div className="mt-5 rounded-[24px] border border-white/[0.10] bg-[rgba(0,0,0,0.18)] p-4">
+            <p className="label">Live guidance</p>
+            <p className="mt-3 text-xl font-medium tracking-[-0.04em] text-white">
+              {finderCopy.title}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{finderCopy.detail}</p>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_148px] sm:items-center">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FinderMetric
+                label="Altitude"
+                value={`${formatSignedDegrees(skyPosition.altitude)} ${skyPosition.altitude >= 0 ? "up" : "down"}`}
+              />
+              <FinderMetric
+                label="Azimuth"
+                value={`${skyPosition.azimuth.toFixed(1)}° ${directionLabel ?? ""}`.trim()}
+              />
+              <FinderMetric
+                label="Turn"
+                value={
+                  turnDelta === null
+                    ? "Compass needed"
+                    : `${Math.abs(turnDelta).toFixed(0)}° ${turnDelta >= 0 ? "right" : "left"}`
+                }
+              />
+              <FinderMetric
+                label="Phone heading"
+                value={heading === null ? "Waiting" : `${heading.toFixed(1)}°`}
+              />
+            </div>
+
+            <div className="relative mx-auto h-36 w-36 rounded-full border border-white/[0.12] bg-[radial-gradient(circle_at_top,_rgba(155,231,255,0.18),_rgba(6,10,22,0.92))]">
+              <div className="absolute inset-3 rounded-full border border-white/[0.10]" />
+              <span className="absolute left-1/2 top-2 -translate-x-1/2 font-mono text-[11px] text-[color:var(--muted)]">
+                N
+              </span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[11px] text-[color:var(--muted)]">
+                E
+              </span>
+              <span className="absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[11px] text-[color:var(--muted)]">
+                S
+              </span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-[11px] text-[color:var(--muted)]">
+                W
+              </span>
+
+              <div className="absolute left-1/2 top-4 h-3 w-3 -translate-x-1/2 rounded-full bg-white shadow-[0_0_18px_rgba(255,255,255,0.7)]" />
+
+              {turnDelta !== null ? (
+                <div
+                  className="absolute inset-3 transition-transform duration-300"
+                  style={{ transform: `rotate(${turnDelta}deg)` }}
+                >
+                  <div className="absolute left-1/2 top-1 flex -translate-x-1/2 flex-col items-center">
+                    <div
+                      className="h-11 w-0.5"
+                      style={{
+                        background: `linear-gradient(to bottom, ${selected.accent}, transparent)`,
+                      }}
+                    />
+                    <div
+                      className="mt-1 h-3.5 w-3.5 rounded-full"
+                      style={{
+                        backgroundColor: selected.accent,
+                        boxShadow: `0 0 18px ${selected.accent}`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="mt-5 rounded-[24px] border border-dashed border-white/[0.12] bg-[rgba(0,0,0,0.14)] p-4 text-sm leading-6 text-[color:var(--muted)]">
+          Enable location to solve {selected.name}&apos;s altitude and azimuth from your phone.
+          The finder will then show where to point and whether the comet is above your horizon.
+        </div>
+      )}
+
+      {locationError ? (
+        <p className="mt-4 text-sm leading-6 text-[#ffd8c4]">{locationError}</p>
+      ) : null}
+      {orientationError ? (
+        <p className="mt-2 text-sm leading-6 text-[#ffd8c4]">{orientationError}</p>
+      ) : null}
+
+      <p className="mt-4 text-xs leading-5 text-[color:var(--muted)]">
+        Best results come outdoors with the phone held upright. If the heading looks wrong, move
+        the phone in a figure-eight to recalibrate the compass.
+      </p>
+    </section>
+  );
+}
+
+function FinderMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.04)] px-4 py-3">
+      <p className="label">{label}</p>
+      <p className="mt-2 text-base font-medium tracking-[-0.03em] text-white">{value}</p>
+    </div>
+  );
+}
+
+function FinderStatus({
+  label,
+  status,
+}: {
+  label: string;
+  status: FinderPermissionState;
+}) {
+  return (
+    <div className="rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.04)] px-4 py-3">
+      <p className="label">{label}</p>
+      <p className="mt-2 text-sm font-medium text-white">{formatFinderStatus(status)}</p>
+    </div>
+  );
+}
+
+function getFinderActionLabel(
+  locationStatus: FinderPermissionState,
+  orientationStatus: FinderPermissionState,
+  finderBusy: boolean,
+) {
+  if (finderBusy) {
+    return "Connecting sensors...";
+  }
+
+  if (locationStatus !== "granted") {
+    return "Enable phone finder";
+  }
+
+  if (orientationStatus !== "granted" && orientationStatus !== "unsupported") {
+    return "Enable compass";
+  }
+
+  return "Refresh location";
+}
+
+function formatFinderStatus(status: FinderPermissionState) {
+  if (status === "granted") return "Connected";
+  if (status === "pending") return "Requesting";
+  if (status === "denied") return "Denied";
+  if (status === "unsupported") return "Unavailable";
+  return "Not enabled";
+}
+
+function formatCompassDirection(azimuth: number) {
+  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const index = Math.round(azimuth / 45) % directions.length;
+  return directions[index];
+}
+
+function formatSignedDegrees(value: number) {
+  const prefix = value >= 0 ? "+" : "-";
+  return `${prefix}${Math.abs(value).toFixed(1)}°`;
+}
+
+function getFinderCopy(
+  name: string,
+  skyPosition: ReturnType<typeof equatorialToHorizontal>,
+  turnDelta: number | null,
+  heading: number | null,
+) {
+  if (!skyPosition) {
+    return {
+      title: `Waiting for a sky solution for ${name}`,
+      detail: "Enable location so the finder can place the selected comet in your current sky.",
+    };
+  }
+
+  if (skyPosition.altitude < 0) {
+    return {
+      title: `${name} is below your horizon`,
+      detail: `From your current location, the comet is ${Math.abs(skyPosition.altitude).toFixed(1)} degrees below the horizon toward ${formatCompassDirection(skyPosition.azimuth)}.`,
+    };
+  }
+
+  if (heading === null || turnDelta === null) {
+    return {
+      title: `Aim toward ${formatCompassDirection(skyPosition.azimuth)}`,
+      detail: `The comet is ${skyPosition.altitude.toFixed(1)} degrees above your horizon at azimuth ${skyPosition.azimuth.toFixed(1)} degrees. Enable compass access for live turn-by-turn guidance.`,
+    };
+  }
+
+  if (Math.abs(turnDelta) < 6) {
+    return {
+      title: "Almost on target",
+      detail: `You are lined up within ${Math.abs(turnDelta).toFixed(0)} degrees. Keep the phone pointed about ${skyPosition.altitude.toFixed(1)} degrees above the horizon.`,
+    };
+  }
+
+  return {
+    title: `Turn ${Math.abs(turnDelta).toFixed(0)}° ${turnDelta >= 0 ? "right" : "left"}`,
+    detail: `Then hold the phone about ${skyPosition.altitude.toFixed(1)} degrees above the horizon toward ${formatCompassDirection(skyPosition.azimuth)}.`,
+  };
 }
