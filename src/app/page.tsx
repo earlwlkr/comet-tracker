@@ -921,12 +921,18 @@ function PhoneFinderPanel({
     setFinderBusy(true);
 
     try {
-      if (locationStatus !== "granted") {
-        await requestLocationAccess();
-      }
+      const pendingRequests: Promise<boolean>[] = [];
 
       if (orientationStatus !== "granted" && orientationStatus !== "unsupported") {
-        await requestOrientationAccess();
+        pendingRequests.push(requestOrientationAccess());
+      }
+
+      if (locationStatus !== "granted") {
+        pendingRequests.push(requestLocationAccess());
+      }
+
+      if (pendingRequests.length > 0) {
+        await Promise.allSettled(pendingRequests);
       }
     } finally {
       setFinderBusy(false);
