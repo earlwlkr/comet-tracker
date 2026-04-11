@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -14,8 +15,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Comet Tracker",
-  description: "A cinematic dashboard for tracking comet visibility, windows, and observation notes.",
+  title: "NASA Signal Desk",
+  description: "Minimal NASA data views for APOD, EONET, and DONKI.",
 };
 
 const htmlClassName = `${spaceGrotesk.variable} ${ibmPlexMono.variable} h-full antialiased`;
@@ -27,7 +28,40 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={htmlClassName}>
-      <body className="min-h-full bg-background text-foreground">{children}</body>
+      <body className="min-h-full bg-background text-foreground">
+        <div className="mx-auto flex min-h-screen w-full max-w-[1320px] flex-col px-5 pb-10 sm:px-7 lg:px-10">
+          <header className="sticky top-0 z-20 border-b border-white/10 bg-[rgba(7,12,18,0.78)] backdrop-blur">
+            <div className="flex flex-col gap-5 px-1 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-2 sm:py-6">
+              <div className="pr-4">
+                <Link href="/" className="text-sm font-medium tracking-[0.32em] text-white/70 uppercase">
+                  NASA Signal Desk
+                </Link>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/52">
+                  Three focused views for astronomy media, Earth events, and space weather.
+                </p>
+              </div>
+              <nav className="flex flex-wrap gap-3 text-sm text-white/72">
+                <Link className="nav-chip" href="/">
+                  Overview
+                </Link>
+                <Link className="nav-chip" href="/catalog">
+                  Catalog
+                </Link>
+                <Link className="nav-chip" href="/apod">
+                  APOD
+                </Link>
+                <Link className="nav-chip" href="/eonet">
+                  EONET
+                </Link>
+                <Link className="nav-chip" href="/donki">
+                  DONKI
+                </Link>
+              </nav>
+            </div>
+          </header>
+          <div className="flex-1 pt-6 sm:pt-8">{children}</div>
+        </div>
+      </body>
     </html>
   );
 }
