@@ -12,17 +12,13 @@ export default function HomePage() {
         <div className="mt-4 grid gap-8 lg:grid-cols-[1.3fr_0.7fr]">
           <div>
             <h1 className="max-w-3xl text-4xl font-medium tracking-[-0.08em] text-white sm:text-6xl">
-              A working NASA API desk, with live views where the data already has a useful shape.
+              A working NASA API desk, with live views where the data already
+              has a useful shape.
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-white/64 sm:text-base">
-              Nine APIs are now built out with real data views, and the rest still have placeholder
-              pages so the catalog reads like a planned system instead of a loose set of links.
-            </p>
-          </div>
-          <div className="tiny-grid flex items-end border border-white/10 p-5">
-            <p className="max-w-sm text-sm leading-6 text-white/60">
-              The rule stays the same: if a visual is on the page, it has to help locate, compare,
-              rank, or interpret the underlying NASA feed.
+              Nine APIs are now built out with real data views, and the rest
+              still have placeholder pages so the catalog reads like a planned
+              system instead of a loose set of links.
             </p>
           </div>
         </div>
@@ -56,7 +52,9 @@ export default function HomePage() {
                   Live
                 </span>
               </div>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">{view.summary}</p>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">
+                {view.summary}
+              </p>
             </Link>
           ))}
         </div>
@@ -71,8 +69,12 @@ export default function HomePage() {
           >
             <p className="section-label">{view.source}</p>
             <div>
-              <h2 className="text-2xl font-medium tracking-[-0.06em] text-white">{view.title}</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">{view.summary}</p>
+              <h2 className="text-2xl font-medium tracking-[-0.06em] text-white">
+                {view.title}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
+                {view.summary}
+              </p>
             </div>
             <span className="text-sm text-white/46">Placeholder</span>
           </Link>

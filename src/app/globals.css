@@ -22,6 +22,7 @@
 
   html {
     background: var(--background);
+    scroll-padding-top: 8rem;
   }
 
   body {
@@ -83,6 +84,92 @@
     color: white;
   }
 
+  .site-header {
+    padding-top: 0.55rem;
+  }
+
+  .site-header-shell {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(7, 14, 21, 0.84);
+    backdrop-filter: blur(16px);
+  }
+
+  .brand-dot {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background: #8bd7ff;
+    box-shadow: 0 0 0 4px rgba(139, 215, 255, 0.08);
+  }
+
+  .site-header-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: max-content;
+  }
+
+  .site-header-brand-name {
+    font-size: 0.78rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: white;
+  }
+
+  .site-header-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.38rem;
+  }
+
+  .site-header-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.35rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.64);
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease;
+  }
+
+  .site-header-link:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+  }
+
+  .site-header-link.is-active {
+    border-color: rgba(124, 196, 255, 0.32);
+    background: rgba(124, 196, 255, 0.12);
+    color: white;
+  }
+
+  .site-header-link.is-active::after {
+    content: "";
+    position: absolute;
+    left: 0.65rem;
+    right: 0.65rem;
+    bottom: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(124, 196, 255, 0.12), rgba(124, 196, 255, 1));
+  }
+
   .surface {
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: linear-gradient(180deg, rgba(10, 18, 26, 0.82), rgba(7, 12, 18, 0.72));
@@ -112,5 +199,59 @@
 
   .data-link {
     color: rgba(173, 216, 255, 0.96);
+  }
+
+  .link-pending-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: rgba(173, 216, 255, 0.95);
+    opacity: 0;
+    box-shadow: 0 0 0 0 rgba(173, 216, 255, 0.3);
+  }
+
+  .link-pending-dot.is-pending {
+    animation: pending-fade 180ms ease forwards, pending-pulse 900ms ease-in-out infinite;
+    animation-delay: 80ms, 80ms;
+  }
+}
+
+@media (min-width: 900px) {
+  @layer components {
+    .site-header {
+      padding-top: 0.75rem;
+    }
+
+    .site-header-shell {
+      justify-content: space-between;
+      padding: 0.8rem 1rem;
+    }
+
+    .site-header-nav {
+      justify-content: flex-end;
+    }
+  }
+}
+
+@keyframes pending-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pending-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(173, 216, 255, 0.12);
+    transform: scale(0.95);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(173, 216, 255, 0.02);
+    transform: scale(1.08);
   }
 }

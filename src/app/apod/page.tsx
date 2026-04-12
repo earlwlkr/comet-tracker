@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import Link from "next/link";
+import ApodLoadMoreLink from "@/components/apod-load-more-link";
 import { getApod, getApodRange } from "@/lib/nasa";
 
 export const metadata: Metadata = {
@@ -242,12 +243,14 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
         </div>
         {!overviewEntriesUnavailable && overviewCount < APOD_MAX_OVERVIEW_ITEMS ? (
           <div className="mt-5 flex justify-center">
-            <Link
-              className="nav-chip"
-              href={entry.date === today ? `/apod?count=${nextOverviewCount}` : `/apod?date=${entry.date}&count=${nextOverviewCount}`}
-            >
-              Load {Math.min(APOD_PAGE_SIZE, APOD_MAX_OVERVIEW_ITEMS - overviewCount)} more
-            </Link>
+            <ApodLoadMoreLink
+              href={
+                entry.date === today
+                  ? `/apod?count=${nextOverviewCount}`
+                  : `/apod?date=${entry.date}&count=${nextOverviewCount}`
+              }
+              label={`Load ${Math.min(APOD_PAGE_SIZE, APOD_MAX_OVERVIEW_ITEMS - overviewCount)} more`}
+            />
           </div>
         ) : null}
       </section>
