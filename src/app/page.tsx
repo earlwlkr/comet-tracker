@@ -15,8 +15,8 @@ export default function HomePage() {
               A working NASA API desk, with live views where the data already has a useful shape.
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-white/64 sm:text-base">
-              Six APIs are built out with real data views, and the rest now have placeholder pages
-              so the catalog reads like a planned system instead of a loose set of links.
+              Nine APIs are now built out with real data views, and the rest still have placeholder
+              pages so the catalog reads like a planned system instead of a loose set of links.
             </p>
           </div>
           <div className="tiny-grid flex items-end border border-white/10 p-5">

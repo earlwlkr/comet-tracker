@@ -28,6 +28,11 @@ function shiftDate(value: string, amount: number) {
   return next.toISOString().slice(0, 10);
 }
 
+function isDirectVideoAsset(url: string) {
+  const normalized = url.split("?")[0]?.toLowerCase() ?? "";
+  return normalized.endsWith(".mp4") || normalized.endsWith(".mov") || normalized.endsWith(".webm");
+}
+
 export default async function ApodPage({ searchParams }: ApodPageProps) {
   const { date } = await searchParams;
   const entry = await getApod(date);
@@ -42,6 +47,7 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
 
   const today = new Date().toISOString().slice(0, 10);
   const canGoForward = entry.date < today;
+  const showNativeVideoPlayer = entry.media_type === "video" && isDirectVideoAsset(entry.url);
 
   return (
     <main className="space-y-6">
@@ -89,6 +95,18 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
               className="aspect-[16/10] w-full object-cover"
               src={entry.url}
             />
+          ) : showNativeVideoPlayer ? (
+            <video
+              className="aspect-[16/10] w-full bg-black object-contain"
+              controls
+              playsInline
+              preload="metadata"
+              src={entry.url}
+            >
+              <a href={entry.url} rel="noreferrer" target="_blank">
+                Open video
+              </a>
+            </video>
           ) : (
             <iframe
               allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"

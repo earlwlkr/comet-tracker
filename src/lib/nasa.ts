@@ -106,6 +106,118 @@ export type ExoplanetView = {
   systemDistanceParsecs: number | null;
 };
 
+type EpicCoordinates = {
+  lat: number;
+  lon: number;
+};
+
+type EpicVector = {
+  x: number;
+  y: number;
+  z: number;
+};
+
+type EpicResponseItem = {
+  caption: string;
+  centroid_coordinates?: EpicCoordinates;
+  coords?: {
+    attitude_quaternions?: Record<string, number>;
+    centroid_coordinates?: EpicCoordinates;
+    dscovr_j2000_position?: EpicVector;
+    lunar_j2000_position?: EpicVector;
+    sun_j2000_position?: EpicVector;
+  };
+  date: string;
+  dscovr_j2000_position?: EpicVector;
+  identifier: string;
+  image: string;
+  lunar_j2000_position?: EpicVector;
+  sun_j2000_position?: EpicVector;
+  version: string;
+};
+
+export type EpicFrameView = {
+  archiveUrl: string;
+  caption: string;
+  captureDate: string;
+  centroidLatitude: number | null;
+  centroidLongitude: number | null;
+  dscovrDistanceKm: number | null;
+  identifier: string;
+  image: string;
+  lunarDistanceKm: number | null;
+  sunDistanceKm: number | null;
+  version: string;
+};
+
+type InsightMeasurement = {
+  av?: number;
+  ct?: number;
+  mn?: number;
+  mx?: number;
+};
+
+type InsightWindDirection = {
+  compass_degrees?: number;
+  compass_point?: string;
+  ct?: number;
+};
+
+type InsightSolResponse = {
+  AT?: InsightMeasurement;
+  First_UTC?: string;
+  HWS?: InsightMeasurement;
+  Last_UTC?: string;
+  Northern_season?: string;
+  PRE?: InsightMeasurement;
+  Season?: string;
+  Southern_season?: string;
+  WD?: Record<string, InsightWindDirection | undefined> & {
+    most_common?: InsightWindDirection;
+  };
+};
+
+type InsightWeatherResponse = Record<string, InsightSolResponse | string[] | object | undefined> & {
+  sol_keys?: string[];
+  validity_checks?: object;
+};
+
+export type InsightSolView = {
+  averagePressurePa: number | null;
+  averageTempC: number | null;
+  averageWindMps: number | null;
+  firstUtc: string;
+  lastUtc: string;
+  maxPressurePa: number | null;
+  maxTempC: number | null;
+  maxWindMps: number | null;
+  minPressurePa: number | null;
+  minTempC: number | null;
+  mostCommonWindDirection: string | null;
+  northernSeason: string | null;
+  season: string | null;
+  sol: number;
+  southernSeason: string | null;
+};
+
+type GibsLayerConfig = {
+  cadence: string;
+  description: string;
+  focus: string;
+  id: string;
+  imageFormat: "image/jpeg" | "image/png";
+  matrixSet: string;
+  title: string;
+};
+
+export type GibsLayerView = GibsLayerConfig & {
+  current: boolean;
+  defaultTime: string | null;
+  legendUrl: string | null;
+  previewUrl: string;
+  tileTemplate: string | null;
+};
+
 type EonetCategory = {
   id: string;
   title: string;
@@ -270,6 +382,33 @@ async function fetchJson<T>(url: string, revalidate = 3600, retries = 1) {
   }
 
   throw new Error(`NASA request failed with status ${lastStatus ?? 500}.`);
+}
+
+async function fetchText(url: string, revalidate = 3600, retries = 1) {
+  let attempt = 0;
+  let lastStatus: number | null = null;
+
+  while (attempt <= retries) {
+    const response = await fetch(url, {
+      headers: { accept: "text/plain, application/xml, text/xml;q=0.9, */*;q=0.8" },
+      next: { revalidate },
+    });
+
+    if (response.ok) {
+      return response.text();
+    }
+
+    lastStatus = response.status;
+
+    if (attempt === retries || !shouldRetryRequest(response.status)) {
+      throw new Error(`NASA text request failed with status ${response.status}.`);
+    }
+
+    await delay(350 * (attempt + 1));
+    attempt += 1;
+  }
+
+  throw new Error(`NASA text request failed with status ${lastStatus ?? 500}.`);
 }
 
 export function getRecentDateRange(endDateInput?: string, dayCount = 7) {
@@ -562,4 +701,247 @@ export async function getExoplanetSnapshot() {
     nearestPlanets,
     recentPlanets,
   };
+}
+
+function resolveEpicCoordinates(entry: EpicResponseItem) {
+  return entry.coords?.centroid_coordinates ?? entry.centroid_coordinates ?? null;
+}
+
+function resolveEpicVector(
+  entry: EpicResponseItem,
+  key: "dscovr_j2000_position" | "lunar_j2000_position" | "sun_j2000_position",
+) {
+  return entry.coords?.[key] ?? entry[key];
+}
+
+function getVectorMagnitude(vector?: EpicVector) {
+  if (!vector) {
+    return null;
+  }
+
+  return Math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2);
+}
+
+function buildEpicArchiveUrl(image: string, timestamp: string) {
+  const [datePart] = timestamp.split(" ");
+  const [year, month, day] = datePart.split("-");
+  return `https://epic.gsfc.nasa.gov/archive/natural/${year}/${month}/${day}/png/${image}.png`;
+}
+
+export async function getEpicFrames(limit = 12) {
+  const payload = await fetchJson<EpicResponseItem[]>(
+    buildApiUrl(`${NASA_API_BASE}/EPIC/api/natural`, {
+      api_key: NASA_API_KEY,
+    }),
+    1800,
+  );
+
+  return payload
+    .map((entry) => {
+      const centroid = resolveEpicCoordinates(entry);
+      const dscovrVector = resolveEpicVector(entry, "dscovr_j2000_position");
+      const lunarVector = resolveEpicVector(entry, "lunar_j2000_position");
+      const sunVector = resolveEpicVector(entry, "sun_j2000_position");
+
+      return {
+        archiveUrl: buildEpicArchiveUrl(entry.image, entry.date),
+        caption: entry.caption,
+        captureDate: entry.date,
+        centroidLatitude: centroid?.lat ?? null,
+        centroidLongitude: centroid?.lon ?? null,
+        dscovrDistanceKm: getVectorMagnitude(dscovrVector),
+        identifier: entry.identifier,
+        image: entry.image,
+        lunarDistanceKm: getVectorMagnitude(lunarVector),
+        sunDistanceKm: getVectorMagnitude(sunVector),
+        version: entry.version,
+      };
+    })
+    .sort((left, right) => right.captureDate.localeCompare(left.captureDate))
+    .slice(0, limit) satisfies EpicFrameView[];
+}
+
+function getInsightSolRecord(
+  payload: InsightWeatherResponse,
+  sol: string,
+): InsightSolResponse | null {
+  const record = payload[sol];
+
+  if (!record || Array.isArray(record) || typeof record !== "object") {
+    return null;
+  }
+
+  return record as InsightSolResponse;
+}
+
+export async function getInsightWeather() {
+  const payload = await fetchJson<InsightWeatherResponse>(
+    buildApiUrl(`${NASA_API_BASE}/insight_weather/`, {
+      api_key: NASA_API_KEY,
+      feedtype: "json",
+      ver: "1.0",
+    }),
+    21600,
+  );
+
+  const solKeys =
+    payload.sol_keys?.filter((value) => /^\d+$/.test(value)) ??
+    Object.keys(payload).filter((value) => /^\d+$/.test(value)).sort((left, right) => {
+      return Number.parseInt(left, 10) - Number.parseInt(right, 10);
+    });
+
+  const sols = solKeys
+    .map((sol) => {
+      const record = getInsightSolRecord(payload, sol);
+
+      if (!record || !record.First_UTC || !record.Last_UTC) {
+        return null;
+      }
+
+      return {
+        averagePressurePa: record.PRE?.av ?? null,
+        averageTempC: record.AT?.av ?? null,
+        averageWindMps: record.HWS?.av ?? null,
+        firstUtc: record.First_UTC,
+        lastUtc: record.Last_UTC,
+        maxPressurePa: record.PRE?.mx ?? null,
+        maxTempC: record.AT?.mx ?? null,
+        maxWindMps: record.HWS?.mx ?? null,
+        minPressurePa: record.PRE?.mn ?? null,
+        minTempC: record.AT?.mn ?? null,
+        mostCommonWindDirection: record.WD?.most_common?.compass_point ?? null,
+        northernSeason: record.Northern_season ?? null,
+        season: record.Season ?? null,
+        sol: Number.parseInt(sol, 10),
+        southernSeason: record.Southern_season ?? null,
+      };
+    })
+    .filter((sol): sol is InsightSolView => Boolean(sol));
+
+  return {
+    latestSol: sols.at(-1) ?? null,
+    sols,
+  };
+}
+
+const gibsLayerConfigs: GibsLayerConfig[] = [
+  {
+    cadence: "Daily",
+    description: "Natural-color global imagery for tracking cloud bands, storms, and ocean structure.",
+    focus: "True-color whole-Earth scan",
+    id: "MODIS_Terra_CorrectedReflectance_TrueColor",
+    imageFormat: "image/jpeg",
+    matrixSet: "250m",
+    title: "MODIS Terra True Color",
+  },
+  {
+    cadence: "Daily",
+    description: "Suomi NPP true-color imagery that often gives a cleaner recent whole-globe atmospheric view.",
+    focus: "Recent whole-Earth true color",
+    id: "VIIRS_SNPP_CorrectedReflectance_TrueColor",
+    imageFormat: "image/jpeg",
+    matrixSet: "250m",
+    title: "VIIRS SNPP True Color",
+  },
+  {
+    cadence: "Daily",
+    description: "MODIS aerosol layer useful for spotting dust plumes, haze transport, and smoke extent.",
+    focus: "Aerosol and smoke transport",
+    id: "MODIS_Terra_Aerosol",
+    imageFormat: "image/png",
+    matrixSet: "2km",
+    title: "MODIS Terra Aerosol",
+  },
+  {
+    cadence: "Daily",
+    description: "OMI aerosol index for highlighting absorbing aerosols such as smoke and dust in one global sweep.",
+    focus: "Absorbing aerosol index",
+    id: "OMI_Aerosol_Index",
+    imageFormat: "image/png",
+    matrixSet: "2km",
+    title: "OMI Aerosol Index",
+  },
+];
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function decodeXmlEntity(value: string) {
+  return value
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'");
+}
+
+function findGibsLayerBlock(xml: string, id: string) {
+  const blocks = xml.match(/<Layer>[\s\S]*?<\/Layer>/g) ?? [];
+  return blocks.find((block) => {
+    const blockId = block.match(/<ows:Identifier>([^<]+)<\/ows:Identifier>/)?.[1];
+    return blockId === id;
+  }) ?? null;
+}
+
+function buildGibsPreviewUrl(layerId: string, format: GibsLayerConfig["imageFormat"], time?: string | null) {
+  const url = new URL("https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi");
+  url.searchParams.set("service", "WMS");
+  url.searchParams.set("request", "GetMap");
+  url.searchParams.set("version", "1.1.1");
+  url.searchParams.set("layers", layerId);
+  url.searchParams.set("styles", "default");
+  url.searchParams.set("format", format);
+  url.searchParams.set("transparent", "false");
+  url.searchParams.set("width", "1400");
+  url.searchParams.set("height", "700");
+  url.searchParams.set("srs", "EPSG:4326");
+  url.searchParams.set("bbox", "-180,-90,180,90");
+
+  if (time) {
+    url.searchParams.set("time", time);
+  }
+
+  return url.toString();
+}
+
+export async function getGibsLayerShowcase() {
+  let capabilitiesXml: string | null = null;
+
+  try {
+    capabilitiesXml = await fetchText(
+      "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/1.0.0/WMTSCapabilities.xml",
+      21600,
+    );
+  } catch {
+    capabilitiesXml = null;
+  }
+
+  return gibsLayerConfigs.map((layer) => {
+    const block = capabilitiesXml ? findGibsLayerBlock(capabilitiesXml, layer.id) : null;
+    const defaultTime = block?.match(/<Default>([^<]+)<\/Default>/)?.[1] ?? null;
+    const current = (block?.match(/<Current>([^<]+)<\/Current>/)?.[1] ?? "false") === "true";
+    const matrixSet =
+      block?.match(
+        new RegExp(`<TileMatrixSet>${escapeRegExp(layer.matrixSet)}<\\/TileMatrixSet>`),
+      )
+        ? layer.matrixSet
+        : block?.match(/<TileMatrixSet>([^<]+)<\/TileMatrixSet>/)?.[1] ?? layer.matrixSet;
+    const legendUrl = decodeXmlEntity(
+      block?.match(/<LegendURL[^>]*xlink:href='([^']+)'/i)?.[1] ?? "",
+    ) || null;
+    const tileTemplate = decodeXmlEntity(
+      block?.match(/<ResourceURL template='([^']+)'[^>]*resourceType='tile'/)?.[1] ?? "",
+    ) || null;
+
+    return {
+      ...layer,
+      current,
+      defaultTime,
+      legendUrl,
+      matrixSet,
+      previewUrl: buildGibsPreviewUrl(layer.id, layer.imageFormat, defaultTime),
+      tileTemplate,
+    };
+  }) satisfies GibsLayerView[];
 }

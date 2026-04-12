@@ -16,7 +16,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "NASA Signal Desk",
-  description: "Minimal NASA data views for APOD, EONET, and DONKI.",
+  description: "Focused NASA data views for astronomy, Earth observation, hazards, and Mars weather.",
 };
 
 const htmlClassName = `${spaceGrotesk.variable} ${ibmPlexMono.variable} h-full antialiased`;
@@ -37,7 +37,7 @@ export default function RootLayout({
                   NASA Signal Desk
                 </Link>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-white/52">
-                  Three focused views for astronomy media, Earth events, and space weather.
+                  Focused views for astronomy media, Earth observation, hazards, and Mars weather.
                 </p>
               </div>
               <nav className="flex flex-wrap gap-3 text-sm text-white/72">
@@ -55,6 +55,15 @@ export default function RootLayout({
                 </Link>
                 <Link className="nav-chip" href="/donki">
                   DONKI
+                </Link>
+                <Link className="nav-chip" href="/epic">
+                  EPIC
+                </Link>
+                <Link className="nav-chip" href="/gibs">
+                  GIBS
+                </Link>
+                <Link className="nav-chip" href="/insight">
+                  Insight
                 </Link>
               </nav>
             </div>
