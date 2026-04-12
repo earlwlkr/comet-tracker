@@ -9,8 +9,11 @@ export const metadata: Metadata = {
 };
 
 type ApodPageProps = {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ count?: string; date?: string }>;
 };
+
+const APOD_PAGE_SIZE = 8;
+const APOD_MAX_OVERVIEW_ITEMS = 40;
 
 function formatDateLabel(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -33,12 +36,26 @@ function isDirectVideoAsset(url: string) {
   return normalized.endsWith(".mp4") || normalized.endsWith(".mov") || normalized.endsWith(".webm");
 }
 
-export default async function ApodPage({ searchParams }: ApodPageProps) {
-  const { date } = await searchParams;
-  const [entryResult, recentResult] = await Promise.allSettled([getApod(date), getApodRange(date, 7)]);
+function resolveOverviewCount(value?: string) {
+  const parsed = Number.parseInt(value ?? String(APOD_PAGE_SIZE), 10);
 
-  const recentEntriesFromFeed = recentResult.status === "fulfilled" ? recentResult.value : [];
-  const entry = entryResult.status === "fulfilled" ? entryResult.value : recentEntriesFromFeed[0];
+  if (Number.isNaN(parsed)) {
+    return APOD_PAGE_SIZE;
+  }
+
+  return Math.min(APOD_MAX_OVERVIEW_ITEMS, Math.max(APOD_PAGE_SIZE, parsed));
+}
+
+export default async function ApodPage({ searchParams }: ApodPageProps) {
+  const { count, date } = await searchParams;
+  const overviewCount = resolveOverviewCount(count);
+  const [entryResult, overviewResult] = await Promise.allSettled([
+    getApod(date),
+    getApodRange(undefined, overviewCount),
+  ]);
+
+  const overviewEntriesFromFeed = overviewResult.status === "fulfilled" ? overviewResult.value : [];
+  const entry = entryResult.status === "fulfilled" ? entryResult.value : overviewEntriesFromFeed[0];
 
   if (!entry) {
     return (
@@ -69,11 +86,10 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
     );
   }
 
-  const recentEntries =
-    recentEntriesFromFeed.length > 0
-      ? recentEntriesFromFeed
-      : [entry];
-  const recentEntriesUnavailable = recentResult.status !== "fulfilled";
+  const overviewEntries = overviewEntriesFromFeed.length > 0 ? overviewEntriesFromFeed : [entry];
+  const overviewEntriesUnavailable = overviewResult.status !== "fulfilled";
+  const selectedInOverview = overviewEntries.some((item) => item.date === entry.date);
+  const nextOverviewCount = Math.min(APOD_MAX_OVERVIEW_ITEMS, overviewCount + APOD_PAGE_SIZE);
 
   const today = new Date().toISOString().slice(0, 10);
   const canGoForward = entry.date < today;
@@ -154,14 +170,14 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
             <p className="mt-4 text-sm leading-7 text-white/70">{entry.explanation}</p>
           </div>
           <div className="mt-8 flex flex-wrap gap-2 text-sm">
-            <Link className="nav-chip" href={`/apod?date=${shiftDate(entry.date, -1)}`}>
+            <Link className="nav-chip" href={`/apod?date=${shiftDate(entry.date, -1)}&count=${overviewCount}`}>
               Previous day
             </Link>
-            <Link className="nav-chip" href="/apod">
+            <Link className="nav-chip" href={`/apod?count=${overviewCount}`}>
               Today
             </Link>
             {canGoForward ? (
-              <Link className="nav-chip" href={`/apod?date=${shiftDate(entry.date, 1)}`}>
+              <Link className="nav-chip" href={`/apod?date=${shiftDate(entry.date, 1)}&count=${overviewCount}`}>
                 Next day
               </Link>
             ) : (
@@ -174,25 +190,29 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
       <section className="surface px-6 py-6 sm:px-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="section-label">Last Seven APOD Picks</p>
+            <p className="section-label">APOD Overview</p>
             <h2 className="mt-2 text-2xl font-medium tracking-[-0.06em] text-white">
-              Quick visual comparison
+              Latest picks, kept stable while you inspect any one item
             </h2>
           </div>
-          {recentEntriesUnavailable ? (
+          {overviewEntriesUnavailable ? (
             <p className="max-w-md text-right text-sm leading-6 text-white/56">
-              NASA&apos;s weekly APOD feed is temporarily unavailable, so this section is showing the
-              current entry only.
+              NASA&apos;s recent APOD feed is temporarily unavailable, so this section is showing the
+              selected entry only.
             </p>
           ) : (
             <p className="max-w-md text-right text-sm leading-6 text-white/56">
-              Useful for spotting when NASA shifts from spacecraft coverage to sky photography,
-              planetary imaging, or explanatory diagrams.
+              Load more extends the same latest-first overview instead of rebuilding the strip around the selected day.
             </p>
           )}
         </div>
+        {!selectedInOverview ? (
+          <p className="mt-4 text-sm leading-6 text-white/56">
+            The selected day is older than the current overview window. Load more to bring it back into the gallery.
+          </p>
+        ) : null}
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {recentEntries.map((item) => {
+          {overviewEntries.map((item) => {
             const preview = item.media_type === "image" ? item.url : item.thumbnail_url;
 
             return (
@@ -201,7 +221,7 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
                 className={`overflow-hidden border border-white/10 transition hover:border-white/18 hover:bg-white/[0.03] ${
                   item.date === entry.date ? "bg-white/[0.04]" : "bg-transparent"
                 }`}
-                href={`/apod?date=${item.date}`}
+                href={`/apod?date=${item.date}&count=${overviewCount}`}
               >
                 <div className="aspect-[16/10] bg-black/30">
                   {preview ? (
@@ -220,6 +240,16 @@ export default async function ApodPage({ searchParams }: ApodPageProps) {
             );
           })}
         </div>
+        {!overviewEntriesUnavailable && overviewCount < APOD_MAX_OVERVIEW_ITEMS ? (
+          <div className="mt-5 flex justify-center">
+            <Link
+              className="nav-chip"
+              href={entry.date === today ? `/apod?count=${nextOverviewCount}` : `/apod?date=${entry.date}&count=${nextOverviewCount}`}
+            >
+              Load {Math.min(APOD_PAGE_SIZE, APOD_MAX_OVERVIEW_ITEMS - overviewCount)} more
+            </Link>
+          </div>
+        ) : null}
       </section>
     </main>
   );
