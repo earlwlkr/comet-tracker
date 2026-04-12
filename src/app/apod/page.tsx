@@ -35,15 +35,45 @@ function isDirectVideoAsset(url: string) {
 
 export default async function ApodPage({ searchParams }: ApodPageProps) {
   const { date } = await searchParams;
-  const entry = await getApod(date);
-  let recentEntries = [entry];
-  let recentEntriesUnavailable = false;
+  const [entryResult, recentResult] = await Promise.allSettled([getApod(date), getApodRange(date, 7)]);
 
-  try {
-    recentEntries = await getApodRange(entry.date, 7);
-  } catch {
-    recentEntriesUnavailable = true;
+  const recentEntriesFromFeed = recentResult.status === "fulfilled" ? recentResult.value : [];
+  const entry = entryResult.status === "fulfilled" ? entryResult.value : recentEntriesFromFeed[0];
+
+  if (!entry) {
+    return (
+      <main className="space-y-6">
+        <section className="surface px-6 py-7 sm:px-8">
+          <p className="section-label">Astronomy Picture Of The Day</p>
+          <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-medium tracking-[-0.08em] text-white sm:text-5xl">
+                APOD is temporarily unavailable
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62 sm:text-base">
+                NASA&apos;s APOD endpoint did not respond reliably enough for the page to render right now.
+                The rest of the desk should still work, and this view should recover on the next successful fetch.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <Link className="nav-chip" href="/apod">
+                Retry APOD
+              </Link>
+              <Link className="nav-chip" href="/catalog">
+                Back to catalog
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
   }
+
+  const recentEntries =
+    recentEntriesFromFeed.length > 0
+      ? recentEntriesFromFeed
+      : [entry];
+  const recentEntriesUnavailable = recentResult.status !== "fulfilled";
 
   const today = new Date().toISOString().slice(0, 10);
   const canGoForward = entry.date < today;

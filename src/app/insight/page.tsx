@@ -98,7 +98,30 @@ function SolTableRow({ sol }: { sol: InsightSolView }) {
 }
 
 export default async function InsightPage() {
-  const weather = await getInsightWeather();
+  let weather: Awaited<ReturnType<typeof getInsightWeather>> | null = null;
+
+  try {
+    weather = await getInsightWeather();
+  } catch {
+    weather = null;
+  }
+
+  if (!weather) {
+    return (
+      <main className="space-y-6">
+        <section className="surface px-6 py-7 sm:px-8">
+          <p className="section-label">InSight Mars Weather Archive</p>
+          <h1 className="mt-4 text-4xl font-medium tracking-[-0.08em] text-white sm:text-5xl">
+            The InSight archive is temporarily unavailable
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-white/62 sm:text-base">
+            NASA&apos;s archived weather feed did not respond reliably enough for this render. The route will recover automatically on the next successful fetch.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   const latestSol = weather.latestSol;
 
   if (!latestSol) {

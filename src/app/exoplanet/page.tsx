@@ -11,7 +11,31 @@ function formatDistance(value: number | null) {
 }
 
 export default async function ExoplanetPage() {
-  const snapshot = await getExoplanetSnapshot();
+  let snapshot: Awaited<ReturnType<typeof getExoplanetSnapshot>> | null = null;
+
+  try {
+    snapshot = await getExoplanetSnapshot();
+  } catch {
+    snapshot = null;
+  }
+
+  if (!snapshot) {
+    return (
+      <main className="space-y-6">
+        <section className="surface px-6 py-7 sm:px-8">
+          <p className="section-label">Exoplanet Archive</p>
+          <h1 className="mt-4 text-4xl font-medium tracking-[-0.08em] text-white sm:text-5xl">
+            Exoplanet data is temporarily unavailable
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-white/62 sm:text-base">
+            The archive query timed out or returned an upstream error while this page was rendering.
+            The route will recover automatically on the next successful fetch.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   const strongestMethodCount = Math.max(...snapshot.methodCounts.map((item) => item.count), 1);
   const latestYear = Math.max(
     ...snapshot.recentPlanets.map((planet) => planet.discoveryYear ?? 0),

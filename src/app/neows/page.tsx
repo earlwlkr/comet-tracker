@@ -11,7 +11,30 @@ function formatDistanceLunar(value: number) {
 }
 
 export default async function NeoWsPage() {
-  const feed = await getNeoFeed(2);
+  let feed: Awaited<ReturnType<typeof getNeoFeed>> | null = null;
+
+  try {
+    feed = await getNeoFeed(2);
+  } catch {
+    feed = null;
+  }
+
+  if (!feed) {
+    return (
+      <main className="space-y-6">
+        <section className="surface px-6 py-7 sm:px-8">
+          <p className="section-label">Asteroids NeoWs</p>
+          <h1 className="mt-4 text-4xl font-medium tracking-[-0.08em] text-white sm:text-5xl">
+            Near-Earth object data is temporarily unavailable
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-white/62 sm:text-base">
+            NASA&apos;s feed did not respond quickly enough for this render. The page will recover automatically on the next successful cached fetch.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   const hazardousCount = feed.approaches.filter((item) => item.hazardous).length;
   const closest = feed.approaches[0];
   const fastest = [...feed.approaches].sort(

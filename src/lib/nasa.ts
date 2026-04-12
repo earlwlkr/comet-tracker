@@ -3,6 +3,7 @@ const NASA_API_BASE = "https://api.nasa.gov";
 const EONET_API_BASE = "https://eonet.gsfc.nasa.gov/api/v3";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 8000;
 
 export type ApodEntry = {
   copyright?: string;
@@ -353,6 +354,10 @@ function shouldRetryRequest(status: number) {
   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
+function shouldRetryError(error: unknown) {
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TypeError");
+}
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -360,25 +365,45 @@ function delay(ms: number) {
 async function fetchJson<T>(url: string, revalidate = 3600, retries = 1) {
   let attempt = 0;
   let lastStatus: number | null = null;
+  let lastError: unknown = null;
 
   while (attempt <= retries) {
-    const response = await fetch(url, {
-      headers: { accept: "application/json" },
-      next: { revalidate },
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    if (response.ok) {
-      return (await response.json()) as T;
-    }
+    try {
+      const response = await fetch(url, {
+        cache: "force-cache",
+        headers: { accept: "application/json" },
+        next: { revalidate },
+        signal: controller.signal,
+      });
 
-    lastStatus = response.status;
+      if (response.ok) {
+        return (await response.json()) as T;
+      }
 
-    if (attempt === retries || !shouldRetryRequest(response.status)) {
-      throw new Error(`NASA request failed with status ${response.status}.`);
+      lastStatus = response.status;
+
+      if (attempt === retries || !shouldRetryRequest(response.status)) {
+        throw new Error(`NASA request failed with status ${response.status}.`);
+      }
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === retries || !shouldRetryError(error)) {
+        throw error;
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     await delay(350 * (attempt + 1));
     attempt += 1;
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
   }
 
   throw new Error(`NASA request failed with status ${lastStatus ?? 500}.`);
@@ -387,25 +412,45 @@ async function fetchJson<T>(url: string, revalidate = 3600, retries = 1) {
 async function fetchText(url: string, revalidate = 3600, retries = 1) {
   let attempt = 0;
   let lastStatus: number | null = null;
+  let lastError: unknown = null;
 
   while (attempt <= retries) {
-    const response = await fetch(url, {
-      headers: { accept: "text/plain, application/xml, text/xml;q=0.9, */*;q=0.8" },
-      next: { revalidate },
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    if (response.ok) {
-      return response.text();
-    }
+    try {
+      const response = await fetch(url, {
+        cache: "force-cache",
+        headers: { accept: "text/plain, application/xml, text/xml;q=0.9, */*;q=0.8" },
+        next: { revalidate },
+        signal: controller.signal,
+      });
 
-    lastStatus = response.status;
+      if (response.ok) {
+        return response.text();
+      }
 
-    if (attempt === retries || !shouldRetryRequest(response.status)) {
-      throw new Error(`NASA text request failed with status ${response.status}.`);
+      lastStatus = response.status;
+
+      if (attempt === retries || !shouldRetryRequest(response.status)) {
+        throw new Error(`NASA text request failed with status ${response.status}.`);
+      }
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === retries || !shouldRetryError(error)) {
+        throw error;
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     await delay(350 * (attempt + 1));
     attempt += 1;
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
   }
 
   throw new Error(`NASA text request failed with status ${lastStatus ?? 500}.`);
