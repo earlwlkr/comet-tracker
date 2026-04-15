@@ -1,38 +1,28 @@
 import Link from "next/link";
+import ApodExperience from "@/components/apod-experience";
 import { getBuiltApis, getPlaceholderApis } from "@/lib/nasa-catalog";
 
-export default function HomePage() {
-  const liveViews = getBuiltApis();
+type HomePageProps = {
+  searchParams: Promise<{ count?: string; date?: string }>;
+};
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const liveViews = getBuiltApis().filter((view) => view.slug !== "apod");
   const placeholders = getPlaceholderApis();
+  const resolvedSearchParams = await searchParams;
 
   return (
     <main className="space-y-8">
-      <section className="surface px-6 py-8 sm:px-8 sm:py-10">
-        <p className="section-label">Mission Desk</p>
-        <div className="mt-4 grid gap-8 lg:grid-cols-[1.3fr_0.7fr]">
-          <div>
-            <h1 className="max-w-3xl text-4xl font-medium tracking-[-0.08em] text-white sm:text-6xl">
-              A working NASA API desk, with live views where the data already
-              has a useful shape.
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/64 sm:text-base">
-              Nine APIs are now built out with real data views, and the rest
-              still have placeholder pages so the catalog reads like a planned
-              system instead of a loose set of links.
-            </p>
-          </div>
-        </div>
-      </section>
-
+      <ApodExperience basePath="/" mode="landing" searchParams={resolvedSearchParams} />
       <section className="surface px-6 py-6 sm:px-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="section-label">Live views</p>
+            <p className="section-label">Mission Desk</p>
             <h2 className="mt-2 text-2xl font-medium tracking-[-0.06em] text-white">
-              Built against working data
+              More live views beyond APOD
             </h2>
           </div>
-          <p className="text-sm text-white/50">{liveViews.length} live pages</p>
+          <p className="text-sm text-white/50">{liveViews.length + 1} live pages</p>
         </div>
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           {liveViews.map((view) => (
