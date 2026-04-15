@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import ApodGalleryCardLink from "@/components/apod-gallery-card-link";
 import ApodLoadMoreLink from "@/components/apod-load-more-link";
 import { getApod, getApodRange } from "@/lib/nasa";
 
@@ -260,7 +261,7 @@ export default async function ApodExperience({
             const preview = item.media_type === "image" ? item.url : item.thumbnail_url;
 
             return (
-              <Link
+              <ApodGalleryCardLink
                 key={item.date}
                 className={`overflow-hidden border border-white/10 transition hover:border-white/18 hover:bg-white/[0.03] ${
                   item.date === entry.date ? "bg-white/[0.04]" : "bg-transparent"
@@ -269,6 +270,7 @@ export default async function ApodExperience({
                   count: overviewCount,
                   date: item.date,
                 })}
+                loadingLabel="Loading item"
               >
                 <div className="aspect-[16/10] bg-black/30">
                   {preview ? (
@@ -283,7 +285,7 @@ export default async function ApodExperience({
                   <p className="section-label">{formatDateLabel(item.date)}</p>
                   <h3 className="mt-2 text-base font-medium text-white">{item.title}</h3>
                 </div>
-              </Link>
+              </ApodGalleryCardLink>
             );
           })}
         </div>
