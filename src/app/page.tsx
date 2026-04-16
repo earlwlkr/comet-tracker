@@ -51,24 +51,37 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </section>
 
       <section className="surface divide-y divide-white/10">
-        {placeholders.slice(0, 5).map((view) => (
-          <Link
-            key={view.slug}
-            href={`/${view.slug}`}
-            className="grid gap-3 px-6 py-5 transition hover:bg-white/[0.035] sm:grid-cols-[220px_1fr_auto] sm:items-end sm:px-8"
-          >
-            <p className="section-label">{view.source}</p>
-            <div>
-              <h2 className="text-2xl font-medium tracking-[-0.06em] text-white">
-                {view.title}
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
-                {view.summary}
-              </p>
-            </div>
-            <span className="text-sm text-white/46">Placeholder</span>
-          </Link>
-        ))}
+        {placeholders.length ? (
+          placeholders.slice(0, 5).map((view) => (
+            <Link
+              key={view.slug}
+              href={`/${view.slug}`}
+              className="grid gap-3 px-6 py-5 transition hover:bg-white/[0.035] sm:grid-cols-[220px_1fr_auto] sm:items-end sm:px-8"
+            >
+              <p className="section-label">{view.source}</p>
+              <div>
+                <h2 className="text-2xl font-medium tracking-[-0.06em] text-white">
+                  {view.title}
+                </h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
+                  {view.summary}
+                </p>
+              </div>
+              <span className="text-sm text-white/46">Placeholder</span>
+            </Link>
+          ))
+        ) : (
+          <div className="px-6 py-5 sm:px-8">
+            <p className="section-label">Catalog status</p>
+            <h2 className="mt-2 text-2xl font-medium tracking-[-0.06em] text-white">
+              All NASA catalog routes are live now.
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
+              The landing page no longer has a placeholder queue because every tracked surface has a
+              dedicated route.
+            </p>
+          </div>
+        )}
         <Link
           href="/catalog"
           className="grid gap-3 px-6 py-5 transition hover:bg-white/[0.035] sm:grid-cols-[220px_1fr_auto] sm:items-end sm:px-8"
@@ -79,7 +92,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               See the full NASA API map
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
-              Browse all live and placeholder pages in one place.
+              Browse every live route in one place.
             </p>
           </div>
           <span className="text-sm text-white/46">Open catalog</span>
