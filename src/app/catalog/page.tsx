@@ -13,14 +13,17 @@ export default function CatalogPage() {
 
   return (
     <main className="space-y-6">
-      <section className="surface px-6 py-7 sm:px-8">
-        <p className="section-label">Catalog</p>
-        <h1 className="mt-4 text-4xl font-medium tracking-[-0.08em] text-white sm:text-5xl">
-          Every NASA API in the desk, grouped by what is already built and what is queued next.
-        </h1>
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="section-label">Catalog</p>
+          <h1 className="mt-2 max-w-3xl text-4xl font-medium tracking-[-0.08em] text-white sm:text-6xl">
+            Every NASA data view in one straightforward index.
+          </h1>
+        </div>
+        <p className="font-mono text-sm text-white/50">{liveViews.length} live routes</p>
       </section>
 
-      <section className="surface px-6 py-6 sm:px-8">
+      <section className="surface px-5 py-5 sm:px-7">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="section-label">Live</p>
@@ -30,25 +33,29 @@ export default function CatalogPage() {
           </div>
           <p className="text-sm text-white/50">{liveViews.length} live</p>
         </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="mt-5">
           {liveViews.map((api) => (
             <Link
               key={api.slug}
-              className="border border-white/10 px-5 py-5 transition hover:bg-white/[0.035]"
+              className="simple-row transition hover:bg-white/[0.025] sm:px-2"
               href={`/${api.slug}`}
             >
-              <p className="section-label">{api.source}</p>
-              <h3 className="mt-2 text-2xl font-medium tracking-[-0.06em] text-white">
-                {api.title}
-              </h3>
-              <p className="mt-3 text-sm leading-6 text-white/60">{api.summary}</p>
+              <div>
+                <p className="text-xl font-medium tracking-[-0.05em] text-white">{api.title}</p>
+                <p className="mt-1 font-mono text-xs uppercase tracking-[0.1em] text-white/42">
+                  {api.source}
+                </p>
+              </div>
+              <p className="text-sm leading-6 text-white/62">{api.summary}</p>
+              <span className="status-pill w-fit">Live</span>
+              <span className="font-mono text-sm text-white/46">Open</span>
             </Link>
           ))}
         </div>
       </section>
 
       {placeholders.length ? (
-        <section className="surface px-6 py-6 sm:px-8">
+        <section className="surface px-5 py-5 sm:px-7">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="section-label">Placeholder</p>
@@ -58,25 +65,24 @@ export default function CatalogPage() {
             </div>
             <p className="text-sm text-white/50">{placeholders.length} queued</p>
           </div>
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="mt-5">
             {placeholders.map((api) => (
               <Link
                 key={api.slug}
-                className="border border-white/10 px-5 py-5 transition hover:bg-white/[0.035]"
+                className="simple-row transition hover:bg-white/[0.025] sm:px-2"
                 href={`/${api.slug}`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="section-label">{api.source}</p>
-                    <h3 className="mt-2 text-2xl font-medium tracking-[-0.06em] text-white">
-                      {api.title}
-                    </h3>
-                  </div>
-                  <span className="border border-white/12 px-2 py-1 text-xs uppercase tracking-[0.2em] text-white/46">
-                    Placeholder
-                  </span>
+                <div>
+                  <p className="text-xl font-medium tracking-[-0.05em] text-white">{api.title}</p>
+                  <p className="mt-1 font-mono text-xs uppercase tracking-[0.1em] text-white/42">
+                    {api.source}
+                  </p>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-white/60">{api.summary}</p>
+                <p className="text-sm leading-6 text-white/62">{api.summary}</p>
+                <span className="w-fit rounded-full border border-white/12 px-3 py-1 font-mono text-xs uppercase tracking-[0.08em] text-white/46">
+                  Queued
+                </span>
+                <span className="font-mono text-sm text-white/46">Open</span>
               </Link>
             ))}
           </div>

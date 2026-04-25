@@ -47,6 +47,15 @@ function resolveOverviewCount(value?: string) {
   return Math.min(APOD_MAX_OVERVIEW_ITEMS, Math.max(APOD_PAGE_SIZE, parsed));
 }
 
+function getLandingExcerpt(value: string) {
+  if (value.length <= 360) {
+    return value;
+  }
+
+  const sentenceEnd = value.slice(0, 360).lastIndexOf(".");
+  return `${value.slice(0, sentenceEnd > 180 ? sentenceEnd + 1 : 360)} More context is available on the APOD page.`;
+}
+
 function buildApodHref(basePath: string, params: { count?: number; date?: string }) {
   const query = new URLSearchParams();
 
@@ -113,54 +122,13 @@ export default async function ApodExperience({
   const today = new Date().toISOString().slice(0, 10);
   const canGoForward = entry.date < today;
   const showNativeVideoPlayer = entry.media_type === "video" && isDirectVideoAsset(entry.url);
+  const explanation = isLanding ? getLandingExcerpt(entry.explanation) : entry.explanation;
 
   return (
     <>
-      <section className="surface px-6 py-7 sm:px-8">
-        <p className="section-label">
-          {isLanding ? "Main Deck Feature" : "Astronomy Picture Of The Day"}
-        </p>
-        <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-medium tracking-[-0.08em] text-white sm:text-5xl">
-              {entry.title}
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62 sm:text-base">
-              {isLanding
-                ? "The home page now opens on NASA&apos;s daily astronomy feature so the gallery can do the first impression work: a featured pick, quick date travel, and a recent strip worth browsing."
-                : "NASA&apos;s daily astronomy feature, shown with the context you usually have to click around to gather: date position, media type, source asset, and the last week of selections."}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm text-white/62">
-            <div>
-              <p className="section-label">Date</p>
-              <p className="mt-2 text-white">{formatDateLabel(entry.date)}</p>
-            </div>
-            <div>
-              <p className="section-label">Media</p>
-              <p className="mt-2 text-white">{entry.media_type}</p>
-            </div>
-            <div>
-              <p className="section-label">Rights</p>
-              <p className="mt-2 text-white">{entry.copyright ?? "Public domain or unspecified"}</p>
-            </div>
-            <div>
-              <p className="section-label">Source</p>
-              <a
-                className="data-link mt-2 inline-block"
-                href={entry.hdurl ?? entry.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open original
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="surface overflow-hidden">
+      <section className="surface p-4 sm:p-5 lg:p-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(21rem,0.65fr)]">
+          <div className="media-frame">
           {entry.media_type === "image" ? (
             <img
               alt={entry.title}
@@ -188,48 +156,85 @@ export default async function ApodExperience({
               title={entry.title}
             />
           )}
-        </div>
-
-        <aside className="surface flex flex-col justify-between px-6 py-6">
-          <div>
-            <p className="section-label">Explanation</p>
-            <p className="mt-4 text-sm leading-7 text-white/70">{entry.explanation}</p>
           </div>
-          <div className="mt-8 flex flex-wrap gap-2 text-sm">
-            <Link
-              className="nav-chip"
-              href={buildApodHref(basePath, {
-                count: overviewCount,
-                date: shiftDate(entry.date, -1),
-              })}
-            >
-              Previous day
-            </Link>
-            <Link className="nav-chip" href={buildApodHref(basePath, { count: overviewCount })}>
-              Today
-            </Link>
-            {canGoForward ? (
+
+          <aside className="flex flex-col justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="section-label">
+                  {isLanding ? "Today\u2019s feature" : "Astronomy Picture Of The Day"}
+                </p>
+                <span className="status-pill">Live</span>
+              </div>
+              <h1 className="mt-4 text-3xl font-medium tracking-[-0.07em] text-white sm:text-5xl">
+                {entry.title}
+              </h1>
+              <p className="mt-4 text-sm leading-7 text-white/66">{explanation}</p>
+            </div>
+
+            <div className="mt-7 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 text-sm text-white/62">
+              <div>
+                <p className="section-label">Date</p>
+                <p className="mt-2 text-white">{formatDateLabel(entry.date)}</p>
+              </div>
+              <div>
+                <p className="section-label">Media</p>
+                <p className="mt-2 capitalize text-white">{entry.media_type}</p>
+              </div>
+              <div>
+                <p className="section-label">Rights</p>
+                <p className="mt-2 text-white">{entry.copyright ?? "Public domain"}</p>
+              </div>
+              <div>
+                <p className="section-label">Source</p>
+                <a
+                  className="data-link mt-2 inline-block"
+                  href={entry.hdurl ?? entry.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Original
+                </a>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2 text-sm">
               <Link
                 className="nav-chip"
                 href={buildApodHref(basePath, {
                   count: overviewCount,
-                  date: shiftDate(entry.date, 1),
+                  date: shiftDate(entry.date, -1),
                 })}
               >
-                Next day
+                Previous
               </Link>
-            ) : (
-              <span className="nav-chip cursor-default text-white/34">Next day</span>
-            )}
-            {isLanding ? (
-              <Link className="nav-chip" href="/apod">
-                Dedicated APOD page
+              <Link className="nav-chip" href={buildApodHref(basePath, { count: overviewCount })}>
+                Today
               </Link>
-            ) : null}
-          </div>
-        </aside>
+              {canGoForward ? (
+                <Link
+                  className="nav-chip"
+                  href={buildApodHref(basePath, {
+                    count: overviewCount,
+                    date: shiftDate(entry.date, 1),
+                  })}
+                >
+                  Next
+                </Link>
+              ) : (
+                <span className="nav-chip cursor-default text-white/34">Next</span>
+              )}
+              {isLanding ? (
+                <Link className="nav-chip" href="/apod">
+                  Full APOD
+                </Link>
+              ) : null}
+            </div>
+          </aside>
+        </div>
       </section>
 
+      {!isLanding ? (
       <section className="surface px-6 py-6 sm:px-8">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -301,6 +306,7 @@ export default async function ApodExperience({
           </div>
         ) : null}
       </section>
+      ) : null}
     </>
   );
 }
