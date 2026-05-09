@@ -16,7 +16,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "NASA Signal Desk",
-  description: "Focused NASA data views for astronomy, Earth observation, hazards, and Mars weather.",
+  description: "NASA command center for exploring space activity, mission updates, and celestial events in one focused dashboard.",
 };
 
 const htmlClassName = `${spaceGrotesk.variable} ${ibmPlexMono.variable} h-full antialiased`;
