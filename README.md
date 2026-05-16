@@ -1,17 +1,27 @@
-# Comet Tracker
+# NASA Signal Desk
 
-Comet Tracker is a live observation dashboard for visible comets. It pulls free nightly observability data from NASA/JPL, ranks active targets, and presents them in a mission-control style interface with timing windows, orbit context, alerts, and operator notes.
+A mission-control dashboard that surfaces live NASA data across 16 dedicated views. Built as a clean desk for signals that are worth checking now.
 
-## What it does
+## Live data views
 
-- Loads observable comet targets from JPL's Small-Body Observability API.
-- Enriches each target with orbit metadata from the Small-Body Database API.
-- Renders a cinematic control surface with:
-  - live target queue
-  - observatory dark-time summary
-  - per-comet visibility scoring
-  - rise, transit, and set windows
-  - derived checklist items and watch alerts
+| Route | Source | What it shows |
+|---|---|---|
+| `/apod` | api.nasa.gov | Astronomy Picture of the Day with daily context |
+| `/eonet` | eonet.gsfc.nasa.gov | Open natural events with category filtering |
+| `/donki` | api.nasa.gov | Space weather events on an operational timeline |
+| `/images` | images-api.nasa.gov | Searchable NASA media library |
+| `/neows` | api.nasa.gov | Near-Earth object approaches |
+| `/exoplanet` | exoplanetarchive.ipac.caltech.edu | Recent exoplanet discoveries |
+| `/epic` | api.nasa.gov | Daily DSCOVR Earth imagery |
+| `/gibs` | earthdata | Global imagery layer previews |
+| `/insight` | api.nasa.gov (archive) | Final InSight Mars weather archive |
+| `/osdr` | visualization.osdr.nasa.gov | Open science dataset profiles |
+| `/ssc` | sscweb.gsfc.nasa.gov | Observatory coverage and orbit tracks |
+| `/ssd-cneos` | ssd-api.jpl.nasa.gov | JPL close-approach data |
+| `/techport` | techport.nasa.gov | NASA technology project portfolio |
+| `/techtransfer` | technology.nasa.gov | Patents, software, and spinoffs |
+| `/tle` | tle.ivanstanojevic.me | Two-line element records |
+| `/trek` | trek.nasa.gov | Planetary Trek maps (Moon, Mars, Vesta) |
 
 ## Stack
 
@@ -19,13 +29,6 @@ Comet Tracker is a live observation dashboard for visible comets. It pulls free 
 - React 19
 - Tailwind CSS 4
 - TypeScript
-
-## Data source
-
-- JPL Small-Body Observability API
-- JPL Small-Body Database API
-
-The app currently defaults to MPC observatory code `F51` (Pan-STARRS 1, Haleakala). You can override that with `COMET_TRACKER_MPC_CODE`.
 
 ## Local development
 
